@@ -1,6 +1,6 @@
 #![no_std]
 
-//! Manages an MCP23017, a 16-Bit I2C I/O Expander with Serial Interface module.
+//! Manages an MCP23S17, a 16-Bit SPI I/O Expander with Serial Interface module.
 //!
 //! This operates the chip in `IOCON.BANK=0` mode, i.e. the registers are mapped sequentially.
 //! This driver does not set `IOCON.BANK`, but the factory default is `0` and this driver does
@@ -27,14 +27,14 @@ extern crate embedded_hal as ehal;
 
 use ehal::blocking::i2c::{Write, WriteRead};
 
-/// The default I2C address of the MCP23017.
+/// The default I2C address of the MCP23S17.
 const DEFAULT_ADDRESS: u8 = 0x20;
 
 /// Binary constants.
 const HIGH: bool = true;
 const LOW: bool = false;
 
-/// Struct for an MCP23017.
+/// Struct for an MCP23S17.    
 /// See the crate-level documentation for general info on the device and the operation of this
 /// driver.
 #[derive(Clone, Copy, Debug)]
