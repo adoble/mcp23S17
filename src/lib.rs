@@ -1,5 +1,7 @@
 #![no_std]
 
+// See https://github.com/JitterCompany/adxl355-rs/blob/master/src/lib.rs  for an SPI example
+
 //! Manages an MCP23S17, a 16-Bit SPI I/O Expander with Serial Interface module.
 //!
 //! This operates the chip in `IOCON.BANK=0` mode, i.e. the registers are mapped sequentially.
@@ -25,23 +27,36 @@
 
 extern crate embedded_hal as ehal;
 
-use ehal::blocking::i2c::{Write, WriteRead};
+//use ehal::blocking::i2c::{Write, WriteRead};  
+use ehal::blocking::spi::{Write, Transfer};
+
+use ehal::digital::v2::OutputPin; //NEW
 
 /// The default I2C address of the MCP23S17.
-const DEFAULT_ADDRESS: u8 = 0x20;
+//const DEFAULT_ADDRESS: u8 = 0x20;
 
 /// Binary constants.
 const HIGH: bool = true;
 const LOW: bool = false;
 
+// SPI R/W constants  NEW
+const SPI_READ: u8 = 1;
+const SPI_WRITE: u8 = 0;
+
 /// Struct for an MCP23S17.    
 /// See the crate-level documentation for general info on the device and the operation of this
 /// driver.
 #[derive(Clone, Copy, Debug)]
-pub struct MCP23017<I2C: Write + WriteRead> {
-    com: I2C,
+//pub struct MCP23S17<SPI: Write<u8, Error> + Transfer<u8, Error>, CS> {       //Transfer<u8, Error = E> + Write<u8, Error = E>,
+pub struct MCP23S17<SPI, CS, E, PinError> 
+    where SPI: Write<u8, Error = E> + Transfer<u8, Error = E>,
+          CS: OutputPin<Error = PinError>
+    {       //Transfer<u8, Error = E> + Write<u8, Error = E>,
+        com: SPI,
     /// The I2C slave address of this device.
-    pub address: u8,
+    //pub address: u8,
+    /// The  pin used for the device chip select.
+    cs: CS,
 }
 
 /// Defines errors
@@ -59,56 +74,105 @@ impl<E> From<E> for Error<E> {
     }
 }
 
-impl<I2C, E> MCP23017<I2C>
+// impl<SPI, CS, E, PinError> Adxl355<SPI, CS>
+// where
+//     SPI: spi::Transfer<u8, Error=E> + spi::Write<u8, Error=E>,
+//     CS: OutputPin<Error = PinError>
+// {
+
+//impl<I2C, E> MCP23S17<I2C>
+impl<SPI, CS, E, PinError> MCP23S17<SPI, CS, E, PinError>  
 where
-    I2C: WriteRead<Error = E> + Write<Error = E>,
-{
-    /// Creates an expander with the default configuration.
-    pub fn default(i2c: I2C) -> Result<MCP23017<I2C>, Error<E>>
-    where
-        I2C: Write<Error = E> + WriteRead<Error = E>,
+    //I2C: WriteRead<Error = E> + Write<Error = E>,
+    SPI: Transfer<u8, Error = E> + Write<u8, Error = E>,
+    CS: OutputPin<Error = PinError>
     {
-        MCP23017::new(i2c, DEFAULT_ADDRESS)
-    }
+    
+        //NOTE remove default as with SPi it makes no sense
 
     /// Creates an expander with specific address.
-    pub fn new(i2c: I2C, address: u8) -> Result<MCP23017<I2C>, Error<E>>
+    pub fn new(spi: SPI, cs: CS) -> Result<MCP23S17<SPI, CS, E, PinError>, Error<E>>
     where
-        I2C: Write<Error = E> + WriteRead<Error = E>,
+        SPI: Write<u8, Error = E> + Transfer<u8, Error = E>,
     {
-        let chip = MCP23017 { com: i2c, address };
+        let chip = MCP23S17 { com: spi, cs: cs };
 
         Ok(chip)
     }
 
     fn init_hardware(&mut self) -> Result<(), Error<E>> {
+        self.cs.set_low().ok();  //NEW
         // set all inputs to defaults on port A and B
         self.write_register(Register::IODIRA, 0xff)?;
         self.write_register(Register::IODIRB, 0xff)?;
-
+        self.cs.set_high().ok(); //NEW
         Ok(())
     }
 
     fn read_register(&mut self, reg: Register) -> Result<u8, E> {
-        let mut data: [u8; 1] = [0];
-        self.com.write_read(self.address, &[reg as u8], &mut data)?;
-        Ok(data[0])
+        //let mut data: [u8; 1] = [0];
+        //self.com.write_read(self.address, &[reg as u8], &mut data)?;
+        //OK(data);
+
+        // NEW
+        let mut out_buffer: [u8; 2] = [((reg as u8) << 1) | SPI_READ, 0];
+        //let mut in_buffer: [u8; 1] = [0];
+        self.cs.set_low().ok();
+        
+        let in_buffer = self.com.transfer(&mut out_buffer)?;
+
+        self.cs.set_high().ok();
+
+        Ok(in_buffer[0]) 
+        
+        
     }
 
     fn read_double_register(&mut self, reg: Register) -> Result<[u8; 2], E> {
-        let mut buffer: [u8; 2] = [0; 2];
-        self.com
-            .write_read(self.address, &[reg as u8], &mut buffer)?;
-        Ok(buffer)
+        // let mut buffer: [u8; 2] = [0; 2];
+        // self.com
+        //     .write_read(self.address, &[reg as u8], &mut buffer)?;
+        // Ok(buffer)
+
+        let mut out_buffer: [u8; 3] = [((reg as u8) << 1) | SPI_WRITE, 0, 0];
+        
+        self.cs.set_low().ok();
+        let in_buffer = self.com.transfer(&mut out_buffer)?;
+        self.cs.set_high().ok();
+
+        Ok([in_buffer[0], in_buffer[1]])
     }
 
     fn write_register(&mut self, reg: Register, byte: u8) -> Result<(), E> {
-        self.com.write(self.address, &[reg as u8, byte])
+        //self.com.write(self.address, &[reg as u8, byte])
+
+        let out_buffer: [u8; 3] = [((reg as u8) << 1) | SPI_WRITE, 0, byte];
+
+        self.cs.set_low().ok();
+
+        let result: Result<(), E> = self.com.write(&out_buffer);
+
+        self.cs.set_high().ok();
+
+        result
+
     }
 
     fn write_double_register(&mut self, reg: Register, word: u16) -> Result<(), E> {
-        let msb = (word >> 8) as u8;
-        self.com.write(self.address, &[reg as u8, word as u8, msb])
+        // let msb = (word >> 8) as u8;
+        // self.com.write(self.address, &[reg as u8, word as u8, msb])
+
+        let out_buffer: [u8; 4] = [((reg as u8) << 1) | SPI_WRITE, 0, word as u8, (word >> 8) as u8];
+        
+        self.cs.set_low().ok();
+        
+        let result: Result<(), E> = self.com.write(&out_buffer);
+
+        self.cs.set_high().ok();
+
+        result
+
+        
     }
 
     /// Updates a single bit in the register associated with the given pin.
