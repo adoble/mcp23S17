@@ -40,8 +40,17 @@ const HIGH: bool = true;
 const LOW: bool = false;
 
 // SPI R/W constants  NEW
-const SPI_READ: u8 = 1;
-const SPI_WRITE: u8 = 0;
+//const SPI_READ: u8 = 1;
+//const SPI_WRITE: u8 = 0;
+
+// SPI OP Codes 
+// const SPI_READ: u8  = 0b01000001; 
+// const SPI_WRITE: u8 = 0b01000000;
+
+const SPI_READ: u8  = 0b01001111;    //TODO propoer handling of address
+const SPI_WRITE: u8 = 0b01001110;    //TODO propoer handling of address
+//TODO Hardware addressing
+
 
 /// Struct for an MCP23S17.    
 /// See the crate-level documentation for general info on the device and the operation of this
@@ -88,7 +97,7 @@ where
     CS: OutputPin<Error = PinError>
     {
     
-        //NOTE remove default as with SPi it makes no sense
+        //NOTE removed default function  with SPI as it makes no sense
 
     /// Creates an expander with specific address.
     pub fn new(spi: SPI, cs: CS) -> Result<MCP23S17<SPI, CS, E, PinError>, Error<E>>
@@ -100,6 +109,7 @@ where
         Ok(chip)
     }
 
+   // Required?
     fn init_hardware(&mut self) -> Result<(), Error<E>> {
         self.cs.set_low().ok();  //NEW
         // set all inputs to defaults on port A and B
@@ -115,7 +125,8 @@ where
         //OK(data);
 
         // NEW
-        let mut out_buffer: [u8; 2] = [((reg as u8) << 1) | SPI_READ, 0];
+        //let mut out_buffer: [u8; 2] = [((reg as u8) << 1) | SPI_READ, 0];
+        let mut out_buffer: [u8; 3] = [SPI_READ, reg as u8, 0];
         //let mut in_buffer: [u8; 1] = [0];
         self.cs.set_low().ok();
         
@@ -123,9 +134,8 @@ where
 
         self.cs.set_high().ok();
 
-        Ok(in_buffer[0]) 
-        
-        
+        Ok(in_buffer[0])
+         
     }
 
     fn read_double_register(&mut self, reg: Register) -> Result<[u8; 2], E> {
@@ -134,7 +144,7 @@ where
         //     .write_read(self.address, &[reg as u8], &mut buffer)?;
         // Ok(buffer)
 
-        let mut out_buffer: [u8; 3] = [((reg as u8) << 1) | SPI_WRITE, 0, 0];
+        let mut out_buffer: [u8; 4] = [SPI_READ, reg as u8, 0, 0];
         
         self.cs.set_low().ok();
         let in_buffer = self.com.transfer(&mut out_buffer)?;
@@ -146,7 +156,7 @@ where
     fn write_register(&mut self, reg: Register, byte: u8) -> Result<(), E> {
         //self.com.write(self.address, &[reg as u8, byte])
 
-        let out_buffer: [u8; 3] = [((reg as u8) << 1) | SPI_WRITE, 0, byte];
+        let out_buffer: [u8; 3] = [SPI_WRITE, reg as u8, byte];
 
         self.cs.set_low().ok();
 
@@ -162,7 +172,14 @@ where
         // let msb = (word >> 8) as u8;
         // self.com.write(self.address, &[reg as u8, word as u8, msb])
 
-        let out_buffer: [u8; 4] = [((reg as u8) << 1) | SPI_WRITE, 0, word as u8, (word >> 8) as u8];
+        //let out_buffer: [u8; 4] = [((reg as u8) << 1) | SPI_WRITE, 0, word as u8, (word >> 8) as u8];
+        //let out_buffer:[u8; 4] = [0b01000000, reg as u8, word as u8, (word >> 8) as u8];
+        
+        // MSB first 
+        //let out_buffer:[u8; 4] = [SPI_WRITE, reg as u8, (word >> 8) as u8, word as u8];
+
+        // MSB last 
+        let out_buffer:[u8; 4] = [SPI_WRITE, reg as u8, word as u8, (word >> 8) as u8];
         
         self.cs.set_low().ok();
         
