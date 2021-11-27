@@ -126,15 +126,16 @@ where
 
         // NEW
         //let mut out_buffer: [u8; 2] = [((reg as u8) << 1) | SPI_READ, 0];
-        let mut out_buffer: [u8; 3] = [SPI_READ, reg as u8, 0];
+        let mut buffer: [u8; 3] = [SPI_READ, reg as u8, 0];
         //let mut in_buffer: [u8; 1] = [0];
         self.cs.set_low().ok();
         
-        let in_buffer = self.com.transfer(&mut out_buffer)?;
+        
+        self.com.transfer(&mut buffer)?;
 
         self.cs.set_high().ok();
 
-        Ok(in_buffer[0])
+        Ok(buffer[2])
          
     }
 
