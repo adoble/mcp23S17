@@ -145,13 +145,14 @@ where
         //     .write_read(self.address, &[reg as u8], &mut buffer)?;
         // Ok(buffer)
 
-        let mut out_buffer: [u8; 4] = [SPI_READ, reg as u8, 0, 0];
+        let mut buffer: [u8; 4] = [SPI_READ, reg as u8, 0, 0];
         
         self.cs.set_low().ok();
-        let in_buffer = self.com.transfer(&mut out_buffer)?;
+        self.com.transfer(&mut buffer)?;
         self.cs.set_high().ok();
 
-        Ok([in_buffer[0], in_buffer[1]])
+        //Ok([buffer[2], buffer[3]])
+        Ok([buffer[3], buffer[2]])
     }
 
     fn write_register(&mut self, reg: Register, byte: u8) -> Result<(), E> {
