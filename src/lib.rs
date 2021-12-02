@@ -27,26 +27,16 @@
 
 extern crate embedded_hal as ehal;
 
-//use ehal::blocking::i2c::{Write, WriteRead};  
 use ehal::blocking::spi::{Write, Transfer};
 
 use ehal::digital::v2::OutputPin; //NEW
 
-/// The default I2C address of the MCP23S17.
-//const DEFAULT_ADDRESS: u8 = 0x20;
 
 /// Binary constants.
 const HIGH: bool = true;
 const LOW: bool = false;
 
-// SPI R/W constants  NEW
-//const SPI_READ: u8 = 1;
-//const SPI_WRITE: u8 = 0;
-
 // SPI OP Codes 
-// const SPI_READ: u8  = 0b01000001; 
-// const SPI_WRITE: u8 = 0b01000000;
-
 const SPI_READ: u8  = 0b01001111;    //TODO propoer handling of address
 const SPI_WRITE: u8 = 0b01001110;    //TODO propoer handling of address
 //TODO Hardware addressing
@@ -56,16 +46,14 @@ const SPI_WRITE: u8 = 0b01001110;    //TODO propoer handling of address
 /// See the crate-level documentation for general info on the device and the operation of this
 /// driver.
 #[derive(Clone, Copy, Debug)]
-//pub struct MCP23S17<SPI: Write<u8, Error> + Transfer<u8, Error>, CS> {       //Transfer<u8, Error = E> + Write<u8, Error = E>,
 pub struct MCP23S17<SPI, CS, E, PinError> 
     where SPI: Write<u8, Error = E> + Transfer<u8, Error = E>,
-          CS: OutputPin<Error = PinError>
-    {       //Transfer<u8, Error = E> + Write<u8, Error = E>,
-        com: SPI,
-    /// The I2C slave address of this device.
-    //pub address: u8,
+          CS: OutputPin<Error = PinError> {
+    // The SPIcommunication object
+    com: SPI,
     /// The  pin used for the device chip select.
     cs: CS,
+    //pub address: u8,
 }
 
 /// Defines errors
@@ -83,22 +71,13 @@ impl<E> From<E> for Error<E> {
     }
 }
 
-// impl<SPI, CS, E, PinError> Adxl355<SPI, CS>
-// where
-//     SPI: spi::Transfer<u8, Error=E> + spi::Write<u8, Error=E>,
-//     CS: OutputPin<Error = PinError>
-// {
-
-//impl<I2C, E> MCP23S17<I2C>
 impl<SPI, CS, E, PinError> MCP23S17<SPI, CS, E, PinError>  
 where
     //I2C: WriteRead<Error = E> + Write<Error = E>,
     SPI: Transfer<u8, Error = E> + Write<u8, Error = E>,
     CS: OutputPin<Error = PinError>
     {
-    
-        //NOTE removed default function  with SPI as it makes no sense
-
+ 
     /// Creates an expander with specific address.
     pub fn new(spi: SPI, cs: CS) -> Result<MCP23S17<SPI, CS, E, PinError>, Error<E>>
     where
@@ -109,7 +88,7 @@ where
         Ok(chip)
     }
 
-   // Required?
+    #[deprecated(note = "Not required as the standard power on default for the MCP23S17 uis used")]
     fn init_hardware(&mut self) -> Result<(), Error<E>> {
         self.cs.set_low().ok();  //NEW
         // set all inputs to defaults on port A and B
@@ -120,19 +99,10 @@ where
     }
 
     fn read_register(&mut self, reg: Register) -> Result<u8, E> {
-        //let mut data: [u8; 1] = [0];
-        //self.com.write_read(self.address, &[reg as u8], &mut data)?;
-        //OK(data);
-
-        // NEW
-        //let mut out_buffer: [u8; 2] = [((reg as u8) << 1) | SPI_READ, 0];
         let mut buffer: [u8; 3] = [SPI_READ, reg as u8, 0];
-        //let mut in_buffer: [u8; 1] = [0];
+        
         self.cs.set_low().ok();
-        
-        
         self.com.transfer(&mut buffer)?;
-
         self.cs.set_high().ok();
 
         Ok(buffer[2])
@@ -140,24 +110,16 @@ where
     }
 
     fn read_double_register(&mut self, reg: Register) -> Result<[u8; 2], E> {
-        // let mut buffer: [u8; 2] = [0; 2];
-        // self.com
-        //     .write_read(self.address, &[reg as u8], &mut buffer)?;
-        // Ok(buffer)
-
         let mut buffer: [u8; 4] = [SPI_READ, reg as u8, 0, 0];
         
         self.cs.set_low().ok();
         self.com.transfer(&mut buffer)?;
         self.cs.set_high().ok();
 
-        //Ok([buffer[2], buffer[3]])
         Ok([buffer[3], buffer[2]])
     }
 
     fn write_register(&mut self, reg: Register, byte: u8) -> Result<(), E> {
-        //self.com.write(self.address, &[reg as u8, byte])
-
         let out_buffer: [u8; 3] = [SPI_WRITE, reg as u8, byte];
 
         self.cs.set_low().ok();
@@ -171,27 +133,15 @@ where
     }
 
     fn write_double_register(&mut self, reg: Register, word: u16) -> Result<(), E> {
-        // let msb = (word >> 8) as u8;
-        // self.com.write(self.address, &[reg as u8, word as u8, msb])
-
-        //let out_buffer: [u8; 4] = [((reg as u8) << 1) | SPI_WRITE, 0, word as u8, (word >> 8) as u8];
-        //let out_buffer:[u8; 4] = [0b01000000, reg as u8, word as u8, (word >> 8) as u8];
-        
-        // MSB first 
-        //let out_buffer:[u8; 4] = [SPI_WRITE, reg as u8, (word >> 8) as u8, word as u8];
-
         // MSB last 
         let out_buffer:[u8; 4] = [SPI_WRITE, reg as u8, word as u8, (word >> 8) as u8];
         
         self.cs.set_low().ok();
-        
         let result: Result<(), E> = self.com.write(&out_buffer);
-
         self.cs.set_high().ok();
 
         result
-
-        
+  
     }
 
     /// Updates a single bit in the register associated with the given pin.
