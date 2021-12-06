@@ -79,11 +79,11 @@ where
     {
  
     /// Creates an expander with specific address.
-    pub fn new(spi: SPI, cs: CS) -> Result<MCP23S17<SPI, CS, E, PinError>, Error<E>>
+    pub fn new(spi: SPI, chip_select_pin : CS) -> Result<MCP23S17<SPI, CS, E, PinError>, Error<E>>
     where
         SPI: Write<u8, Error = E> + Transfer<u8, Error = E>,
     {
-        let chip = MCP23S17 { com: spi, cs: cs };
+        let chip = MCP23S17 { com: spi, cs: chip_select_pin };
 
         Ok(chip)
     }
