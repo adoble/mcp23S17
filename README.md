@@ -2,7 +2,7 @@
 
 > no_std driver for [MCP23S17](http://ww1.microchip.com/downloads/en/DeviceDoc/20001952C.pdf) (16-Bit SPI I/O Expander with Serial Interface module)
 
-**Note: This is an early fork of the orginal MCP23017 repository and is WORK IN PROGRESS. Goal is to have a crate for the MCP23S17 which is functionaly the same as the MCP23017, but with an SPI interface.**
+Note: This is a fork of the orginal MCP23017 repository and is **WORK IN PROGRESS**. Goal is to have a crate for the MCP23S17 which is functionaly the same as the MCP23017, but with an SPI interface.
 
 <!--[![Build Status](https://github.com/lucazulian/mcp23017/workflows/mcp23017-ci/badge.svg)](https://github.com/lucazulian/mcp23017/actions?query=workflow%3Amcp23017-ci)
 -->
@@ -12,58 +12,72 @@
 
 ## Basic usage
 
-**Note: This is a sketch of the API. It tries to preserve the API of the MCP23017 crate as much as possible**
-
 Include this [library](https://crates.io/crates/mcp23S17) as a dependency in your `Cargo.toml`:
 
 ```rust
 [dependencies.mcp23S17]
 version = "<version>"
 ```
-Use [embedded-hal](https://github.com/rust-embedded/embedded-hal) implementation to get SPI handle and then create mcp23S17 handle:
+
+Writing to all expansion pins:
 
 ```rust
-extern crate mcp23S17;
+    let chip_select_pi = todo!();
+    let spi = todo!();
 
-match mcp23S17::MCP23S17::default(spi) {
-    Ok(mut u) => {
-        u.init_hardware();
-        u.pin_mode(1, mcp23S17::PinMode::OUTPUT);   // for the first pin
-        u.all_pin_mode(mcp23S17::PinMode::OUTPUT);  // or for all pins
+    let delay = todo!();
+   
+    let mut chip = MCP23S17::new(spi, chip_select_pin).unwrap();
+    chip.all_pin_mode(mcp23s17::PinMode::OUTPUT).unwrap();
 
-        let status = u.read_gpioab().unwrap();
-        println!("all {:#?}", status).unwrap();
-
-        let read_a = u.read_gpio(mcp23S17::Port::GPIOA).unwrap();
-        println!("port a {:#?}", read_a).unwrap();
-
-        match u.write_gpioab(65503){
-            Ok(_) => {
-                println!("ok").unwrap();
-            }
-            _ => {
-                println!("something wrong").unwrap();
-            }
-        }
+    chip.write_gpioab(0x0000_u16).unwrap(); // All pins low
+    
+    // Toggles the expansion pins
+    loop {
+        delay.delay_ms(200u16);
+        chip.write_gpioab(0xFFFF_u16).unwrap(); // All pins high
+        delay.delay_ms(300u16);
+        chip.write_gpioab(0x0000_u16).unwrap(); // All pins low
     }
-    Err(mcp23S17::MCP23S17::Error::BusError(error)) => {
-        println!("{:#?}", error).unwrap();;
-        panic!();
-    }
-    _ => {
-        panic!();
-    }
-};
 ```
 
-### Hardware address pins
-![](docs/address-pins.jpg)
+Reading from a single expansion pin:
+
+```rust
+    let chip_select_pi = todo!();
+    let spi = todo!();
+   
+    let mut chip = mcp23s17::MCP23S17::new(spi, pin_cs).unwrap();
+
+    let input_pin: u8 = 8;   // Expansion pin to read from
+    chip.pin_mode(input_pin, mcp23s17::PinMode::INPUT).unwrap();
+    chip.pull_up(input_pin, true).unwrap();
+
+    let let r = chip.digital_read(input_pin).unwrap();
+```
+
+Read from all pins:
+```rust
+    let chip_select_pi = todo!();
+    let spi = todo!();
+   
+    let mut chip = mcp23s17::MCP23S17::new(spi, pin_cs)
+                   .unwrap();
+        
+    let reg: u16 = chip.read_gpioab().unwrap();     
+```
+
+
+## Hardware address pins
+**TODO**
+
 
 ## Documentation
 
 Not yet available.
 
 <!--API Docs available on [docs.rs](https://docs.rs/mcp23017/0.1.0/mcp23017/)-->
+
 
 ## License
 
