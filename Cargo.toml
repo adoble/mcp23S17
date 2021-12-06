@@ -1,14 +1,14 @@
 [package]
 name = "mcp23s17"
 version = "1.0.0"
-description = "A rust driver for the MCP23017 (16-Bit I2C I/O Expander with Serial Interface)"
+description = "A rust driver for the MCP23S17 (16-Bit SPI I/O Expander with  Serial Interface)"
 authors = ["Andrew Doble <andrew.l.doble@gmail.com", "Luca Zulian <lucagiuggia@gmail.com>"]
 categories = ["embedded", "hardware-support", "no-std"]
 keywords = ["hal", "IO"]
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/adoble/mcp23S17"
-edition = "2018"
+edition = "2021"
 exclude = [
     ".travis.yml",
     "docs/",
