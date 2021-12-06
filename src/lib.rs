@@ -29,7 +29,7 @@ extern crate embedded_hal as ehal;
 
 use ehal::blocking::spi::{Write, Transfer};
 
-use ehal::digital::v2::OutputPin; //NEW
+use ehal::digital::v2::OutputPin; 
 
 
 /// Binary constants.
@@ -90,11 +90,11 @@ where
 
     #[deprecated(note = "Not required as the standard power on default for the MCP23S17 uis used")]
     fn init_hardware(&mut self) -> Result<(), Error<E>> {
-        self.cs.set_low().ok();  //NEW
+        self.cs.set_low().ok();  
         // set all inputs to defaults on port A and B
         self.write_register(Register::IODIRA, 0xff)?;
         self.write_register(Register::IODIRB, 0xff)?;
-        self.cs.set_high().ok(); //NEW
+        self.cs.set_high().ok(); 
         Ok(())
     }
 
